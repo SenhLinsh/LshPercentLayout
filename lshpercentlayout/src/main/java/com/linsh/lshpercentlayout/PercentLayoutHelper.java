@@ -2,6 +2,8 @@ package com.linsh.lshpercentlayout;
 
 
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.content.res.TypedArray;
 import android.support.annotation.NonNull;
 import android.support.v4.view.MarginLayoutParamsCompat;
@@ -22,35 +24,111 @@ import java.util.regex.Pattern;
 
 public class PercentLayoutHelper {
     private static final String TAG = "PercentLayout";
+    private static final String KEY_BASE_SCREEN_WIDTH = "BASE_SCREEN_WIDTH";
+    private static final String KEY_BASE_SCREEN_HEIGHT = "BASE_SCREEN_HEIGHT";
+    private static final String KEY_DEVICE_SCREEN_WIDTH = "DEVICE_SCREEN_WIDTH";
+    private static final String KEY_DEVICE_SCREEN_HEIGHT = "DEVICE_SCREEN_HEIGHT";
 
     private final ViewGroup mHost;
-
-    private static int mWidthScreen;
-    private static int mHeightScreen;
-
-    private static int mDefaultWidthScreen = 1080;
-    private static int mDefaultHeightScreen = 1920;
+    // 当前屏幕宽高
+    private static int mScreenWidth;
+    private static int mScreenHeight;
+    // 写布局时用于作对比的基础屏幕宽高
+    private static int mBaseScreenWidth;
+    private static int mBaseScreenHeight;
+    // 用于在预览时匹配模拟机型的的预览设备屏幕宽高
+    // (预览时无法获取屏幕宽高, 导致预览时使用默认屏幕宽高, 而与当前模拟设备屏幕宽高不一致, 导致布局整体大小出现偏差)
+    private static int mDeviceScreenWidth;
+    private static int mDeviceScreenHeight;
 
     public PercentLayoutHelper(ViewGroup host) {
         mHost = host;
+        checkBaseScreenSize();
         getScreenSize();
     }
 
+    // 通过Application配置基础屏幕宽高
+    public static void initBaseScreenSize(int baseScreenWidth, int baseScreenHeight) {
+        mBaseScreenWidth = baseScreenWidth;
+        mBaseScreenHeight = baseScreenHeight;
+    }
+
+    // 通过Application配置预览设备屏幕宽高
+    public static void initDeviceScreenSize(int deviceScreenWidth, int deviceScreenHeight) {
+        mDeviceScreenWidth = deviceScreenWidth;
+        mDeviceScreenHeight = deviceScreenHeight;
+    }
+
+    // 检查并获取基础屏幕宽高, 如果没有配置, 则使用默认宽高: 1080*1920
+    private void checkBaseScreenSize() {
+        if (mBaseScreenWidth == 0 && mBaseScreenHeight == 0) {
+            Log.v("LshLog", "LshPercentLayout: 获取清单文件的BaseScreenSize");
+            getMetaBaseScreenSize();
+            getMetaDeviceScreenSize();
+        }
+        if (mBaseScreenWidth == 0 && mBaseScreenHeight == 0) {
+            Log.v("LshLog", "LshPercentLayout: 设置默认BaseScreenSize: 1080*1920");
+            mBaseScreenWidth = 1080;
+            mBaseScreenHeight = 1920;
+        }
+    }
+
+    // 获取清单文件基础屏幕宽高
+    private void getMetaBaseScreenSize() {
+        try {
+            ApplicationInfo aiApplicationInfo = mHost.getContext().getPackageManager().getApplicationInfo(
+                    mHost.getContext().getPackageName(), PackageManager.GET_META_DATA);
+            if (null != aiApplicationInfo) {
+                if (null != aiApplicationInfo.metaData) {
+                    mBaseScreenWidth = aiApplicationInfo.metaData.getInt(KEY_BASE_SCREEN_WIDTH);
+                    mBaseScreenHeight = aiApplicationInfo.metaData.getInt(KEY_BASE_SCREEN_HEIGHT);
+                    Log.v("LshLog", "LshPercentLayout: 获取清单文件的BaseScreenSize---" + "width:" + mBaseScreenWidth + " height:" + mBaseScreenHeight);
+                }
+            }
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // 获取清单文件预览设备屏幕宽高
+    private void getMetaDeviceScreenSize() {
+        try {
+            ApplicationInfo aiApplicationInfo = mHost.getContext().getPackageManager().getApplicationInfo(
+                    mHost.getContext().getPackageName(), PackageManager.GET_META_DATA);
+            if (null != aiApplicationInfo) {
+                if (null != aiApplicationInfo.metaData) {
+                    mDeviceScreenWidth = aiApplicationInfo.metaData.getInt(KEY_DEVICE_SCREEN_WIDTH);
+                    mDeviceScreenHeight = aiApplicationInfo.metaData.getInt(KEY_DEVICE_SCREEN_HEIGHT);
+                    Log.v("LshLog", "LshPercentLayout: 获取清单文件的DeviceScreenSize---" + "width:" + mDeviceScreenWidth + " height:" + mDeviceScreenHeight);
+                }
+            }
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // 获取屏幕尺寸, 在布局预览时, 无法获取屏幕宽高, 可配置预览设备屏幕宽高
     private void getScreenSize() {
         WindowManager wm = (WindowManager) mHost.getContext().getSystemService(Context.WINDOW_SERVICE);
         DisplayMetrics outMetrics = new DisplayMetrics();
         wm.getDefaultDisplay().getMetrics(outMetrics);
-        mWidthScreen = outMetrics.widthPixels;
-        mHeightScreen = outMetrics.heightPixels;
+        mScreenWidth = outMetrics.widthPixels;
+        mScreenHeight = outMetrics.heightPixels;
 
+        Log.v("LshLog", "LshPercentLayout: mScreenWidth=" + mScreenWidth + " mScreenHeight=" + mScreenHeight);
         // 预览时使用全屏由于没有context获取不了屏幕宽高，导致无法正确预览（宽高为0）， 所以下面设置默认的宽高以方便在布局中预览
-        if (mWidthScreen == 0 && mHeightScreen == 0) {
-            // 默认宽高 1080 * 1920
-            mWidthScreen = mDefaultWidthScreen;
-            mHeightScreen = mDefaultHeightScreen;
+        if (mScreenWidth == 0 && mScreenHeight == 0) {
+            Log.e("LshLog", "LshPercentLayout: 无法获取屏幕宽高!!!!");
+            if (mDeviceScreenWidth != 0 || mDeviceScreenHeight != 0) {
+                mScreenWidth = mDeviceScreenWidth;
+                mScreenHeight = mDeviceScreenHeight;
+            } else {
+                // 默认宽高 1080 * 1920
+                mScreenWidth = mBaseScreenWidth;
+                mScreenHeight = mBaseScreenHeight;
+            }
         }
     }
-
 
     /**
      * Helper method to be called from {@link ViewGroup.LayoutParams#setBaseAttributes} override
@@ -63,12 +141,30 @@ public class PercentLayoutHelper {
         params.height = array.getLayoutDimension(heightAttr, 0);
     }
 
+    // 根据百分比改变自身宽高
+    public void adjustMyself(int widthMeasureSpec, int heightMeasureSpec, AttributeSet attrs) {
+        int widthHint = View.MeasureSpec.getSize(widthMeasureSpec);
+        int heightHint = View.MeasureSpec.getSize(heightMeasureSpec);
+
+        PercentLayoutInfo percentLayoutInfo  = PercentLayoutHelper.getPercentLayoutInfo(mHost.getContext(), attrs);
+        ViewGroup.LayoutParams params = mHost.getLayoutParams();
+
+        if (percentLayoutInfo != null) {
+            supportTextSize(widthHint, heightHint, mHost, percentLayoutInfo);
+            supportPadding(widthHint, heightHint, mHost, percentLayoutInfo);
+            supportMinOrMaxDimesion(widthHint, heightHint, mHost, percentLayoutInfo);
+
+            if (params instanceof ViewGroup.MarginLayoutParams) {
+                percentLayoutInfo.fillMarginLayoutParams((ViewGroup.MarginLayoutParams) params,
+                        widthHint, heightHint);
+            } else {
+                percentLayoutInfo.fillLayoutParams(params, widthHint, heightHint);
+            }
+        }
+    }
+
     /**
-     * Iterates over children and changes their width and height to one calculated from percentage
-     * values.
-     *
-     * @param widthMeasureSpec  Width MeasureSpec of the parent ViewGroup.
-     * @param heightMeasureSpec Height MeasureSpec of the parent ViewGroup.
+     * 遍历所有子控件, 并根据百分比改变他们的宽高
      */
     public void adjustChildren(int widthMeasureSpec, int heightMeasureSpec) {
         if (Log.isLoggable(TAG, Log.DEBUG)) {
@@ -110,10 +206,9 @@ public class PercentLayoutHelper {
                 }
             }
         }
-
-
     }
 
+    // 修改子控件的padding
     private void supportPadding(int widthHint, int heightHint, View view, PercentLayoutInfo info) {
         int left = view.getPaddingLeft(), right = view.getPaddingRight(), top = view.getPaddingTop(), bottom = view.getPaddingBottom();
         PercentLayoutInfo.PercentVal percentVal = info.paddingLeftPercent;
@@ -139,8 +234,6 @@ public class PercentLayoutHelper {
             bottom = (int) (base * percentVal.percent);
         }
         view.setPadding(left, top, right, bottom);
-
-
     }
 
     private void supportMinOrMaxDimesion(int widthHint, int heightHint, View view, PercentLayoutInfo info) {
@@ -150,7 +243,6 @@ public class PercentLayoutHelper {
             invokeMethod("setMaxHeight", widthHint, heightHint, view, clazz, info.maxHeightPercent);
             invokeMethod("setMinWidth", widthHint, heightHint, view, clazz, info.minWidthPercent);
             invokeMethod("setMinHeight", widthHint, heightHint, view, clazz, info.minHeightPercent);
-
         } catch (NoSuchMethodException e) {
             e.printStackTrace();
         } catch (InvocationTargetException e) {
@@ -158,7 +250,6 @@ public class PercentLayoutHelper {
         } catch (IllegalAccessException e) {
             e.printStackTrace();
         }
-
     }
 
     private void invokeMethod(String methodName, int widthHint, int heightHint, View view, Class clazz, PercentLayoutInfo.PercentVal percentVal) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
@@ -172,9 +263,8 @@ public class PercentLayoutHelper {
         }
     }
 
+    // 修改子控件的textSize
     private void supportTextSize(int widthHint, int heightHint, View view, PercentLayoutInfo info) {
-        //textsize percent support
-
         PercentLayoutInfo.PercentVal textSizePercent = info.textSizePercent;
         if (textSizePercent == null) return;
 
@@ -194,17 +284,16 @@ public class PercentLayoutHelper {
             case BASE_WIDTH:
                 return widthHint;
             case BASE_SCREEN_WIDTH:
-                return mWidthScreen;
+                return mScreenWidth;
             case BASE_SCREEN_HEIGHT:
-                return mHeightScreen;
+                return mScreenHeight;
         }
         return 0;
     }
 
-
     /**
-     * Constructs a PercentLayoutInfo from attributes associated with a View. Call this method from
-     * {@code LayoutParams(Context c, AttributeSet attrs)} constructor.
+     * 通过View的attrs参数构建百分比布局信息
+     * 在LayoutParams(Context c, AttributeSet attrs)构造中调用
      */
     public static PercentLayoutInfo getPercentLayoutInfo(Context context,
                                                          AttributeSet attrs) {
@@ -212,46 +301,33 @@ public class PercentLayoutHelper {
         TypedArray array = context.obtainStyledAttributes(attrs, R.styleable.PercentLayout_Layout);
 
         info = setWidthAndHeightVal(array, info);
-
         info = setMarginRelatedVal(array, info);
-
         info = setTextSizeSupportVal(array, info);
-
         info = setMinMaxWidthHeightRelatedVal(array, info);
-
         info = setPaddingRelatedVal(array, info);
 
-
         array.recycle();
-
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(TAG, "constructed: " + info);
-        }
         return info;
     }
 
+    // 设置宽高百分比属性
     private static PercentLayoutInfo setWidthAndHeightVal(TypedArray array, PercentLayoutInfo info) {
+        // 设置宽
         PercentLayoutInfo.PercentVal percentVal = getPercentVal(array, R.styleable.PercentLayout_Layout_layout_widthPercent, true);
         if (percentVal != null) {
-            if (Log.isLoggable(TAG, Log.VERBOSE)) {
-                Log.v(TAG, "percent width: " + percentVal.percent);
-            }
             info = checkForInfoExists(info);
             info.widthPercent = percentVal;
         }
+        // 设置高
         percentVal = getPercentVal(array, R.styleable.PercentLayout_Layout_layout_heightPercent, false);
-
         if (percentVal != null) {
-            if (Log.isLoggable(TAG, Log.VERBOSE)) {
-                Log.v(TAG, "percent height: " + percentVal.percent);
-            }
             info = checkForInfoExists(info);
             info.heightPercent = percentVal;
         }
-
         return info;
     }
 
+    // 设置字体大小百分比属性
     private static PercentLayoutInfo setTextSizeSupportVal(TypedArray array, PercentLayoutInfo info) {
         //textSizePercent 默认以高度作为基准
         PercentLayoutInfo.PercentVal percentVal = getPercentVal(array, R.styleable.PercentLayout_Layout_layout_textSizePercent, false);
@@ -266,6 +342,7 @@ public class PercentLayoutHelper {
         return info;
     }
 
+    // 设置最小最大宽高百分比属性
     private static PercentLayoutInfo setMinMaxWidthHeightRelatedVal(TypedArray array, PercentLayoutInfo info) {
         //maxWidth
         PercentLayoutInfo.PercentVal percentVal = getPercentVal(array,
@@ -303,6 +380,7 @@ public class PercentLayoutHelper {
         return info;
     }
 
+    // 设置margin百分比属性
     private static PercentLayoutInfo setMarginRelatedVal(TypedArray array, PercentLayoutInfo info) {
         //默认margin参考宽度
         PercentLayoutInfo.PercentVal percentVal =
@@ -377,12 +455,7 @@ public class PercentLayoutHelper {
         return info;
     }
 
-    /**
-     * 设置paddingPercent相关属性
-     *
-     * @param array
-     * @param info
-     */
+    // 设置padding百分比属性
     private static PercentLayoutInfo setPaddingRelatedVal(TypedArray array, PercentLayoutInfo info) {
         //默认padding以宽度为标准
         PercentLayoutInfo.PercentVal percentVal = getPercentVal(array,
@@ -432,6 +505,7 @@ public class PercentLayoutHelper {
         return info;
     }
 
+    // 通过attr获取百分比属性
     private static PercentLayoutInfo.PercentVal getPercentVal(TypedArray array, int index, boolean baseWidth) {
         String sizeStr = array.getString(index);
         PercentLayoutInfo.PercentVal percentVal = getPercentVal(sizeStr, baseWidth);
@@ -445,53 +519,51 @@ public class PercentLayoutHelper {
         return info;
     }
 
-
+    // 默认百分比布局的正则
     private static final String REGEX_PERCENT = "^(([0-9]+)([.]([0-9]+))?|([.]([0-9]+))?)%([s]?[wh]?)$";
-
-    // 为了避免要计算分数而设置的相对百分比
+    // 为了避免要计算分数而设置的相对百分比的正则
     private static final String REGEX_RELATIVE_PERCENT = "^([0-9]+)([s]?[wh])$";
 
     /**
-     * widthStr to PercentVal
-     * <br/>
-     * eg: 35%w => new PercentVal(35, true)
-     *
-     * @param percentStr
-     * @param isOnWidth
-     * @return
+     * 将布局中获取的自定义attr转换成具体的百分比属性
      */
     private static PercentLayoutInfo.PercentVal getPercentVal(String percentStr, boolean isOnWidth) {
-        //valid param
         if (percentStr == null) {
             return null;
         }
+        // 配置正则
         Pattern p = Pattern.compile(REGEX_PERCENT);
         Matcher matcher = p.matcher(percentStr);
         if (!matcher.matches()) {
+            // 如果不匹配默认的百分比规则, 则继续匹配相对百分比正则
             return getRelativePercentVal(percentStr);
         }
         int len = percentStr.length();
-        //extract the float value
         String floatVal = matcher.group(1);
         String lastAlpha = percentStr.substring(len - 1);
-
+        // 百分比值
         float percent = Float.parseFloat(floatVal) / 100f;
-
+        // 创建,设置并返回百分比属性
         PercentLayoutInfo.PercentVal percentVal = new PercentLayoutInfo.PercentVal();
         percentVal.percent = percent;
         if (percentStr.endsWith(PercentLayoutInfo.BASEMODE.SW)) {
+            // 基于屏幕宽度
             percentVal.basemode = PercentLayoutInfo.BASEMODE.BASE_SCREEN_WIDTH;
         } else if (percentStr.endsWith(PercentLayoutInfo.BASEMODE.SH)) {
+            // 基于屏幕高度
             percentVal.basemode = PercentLayoutInfo.BASEMODE.BASE_SCREEN_HEIGHT;
         } else if (percentStr.endsWith(PercentLayoutInfo.BASEMODE.PERCENT)) {
+            // 未指定, 根据当前属性判断应该是基于父控件宽度还是高度
             if (isOnWidth) {
                 percentVal.basemode = PercentLayoutInfo.BASEMODE.BASE_WIDTH;
             } else {
                 percentVal.basemode = PercentLayoutInfo.BASEMODE.BASE_HEIGHT;
             }
         } else if (percentStr.endsWith(PercentLayoutInfo.BASEMODE.W)) {
+            // 基于父控件宽度
             percentVal.basemode = PercentLayoutInfo.BASEMODE.BASE_WIDTH;
         } else if (percentStr.endsWith(PercentLayoutInfo.BASEMODE.H)) {
+            // 基于父控件高度
             percentVal.basemode = PercentLayoutInfo.BASEMODE.BASE_HEIGHT;
         } else {
             throw new IllegalArgumentException("the " + percentStr + " must be endWith [%|w|h|sw|sh]");
@@ -505,17 +577,20 @@ public class PercentLayoutHelper {
         Pattern p = Pattern.compile(REGEX_RELATIVE_PERCENT);
         Matcher matcher = p.matcher(percentStr);
         if (!matcher.matches()) {
+            // 不匹配则抛出异常
             throw new RuntimeException("the value of layout_xxxPercent invalid! ==>" + percentStr);
         }
         String intVal = matcher.group(1);
 
         PercentLayoutInfo.PercentVal percentVal = new PercentLayoutInfo.PercentVal();
         if (percentStr.endsWith(PercentLayoutInfo.BASEMODE.W)) {
+            // 基于屏幕宽度
             percentVal.basemode = PercentLayoutInfo.BASEMODE.BASE_SCREEN_WIDTH;
-            percentVal.percent = 1f * Integer.parseInt(intVal) / mDefaultWidthScreen;
+            percentVal.percent = 1f * Integer.parseInt(intVal) / mBaseScreenWidth;
         } else if (percentStr.endsWith(PercentLayoutInfo.BASEMODE.H)) {
+            // 基于屏幕高度
             percentVal.basemode = PercentLayoutInfo.BASEMODE.BASE_SCREEN_HEIGHT;
-            percentVal.percent = 1f * Integer.parseInt(intVal) / mDefaultHeightScreen;
+            percentVal.percent = 1f * Integer.parseInt(intVal) / mBaseScreenHeight;
         } else {
             throw new IllegalArgumentException("the " + percentStr + " must be endWith [%|w|h|sw|sh]");
         }
@@ -615,39 +690,29 @@ public class PercentLayoutHelper {
 
 
     /**
-     * Container for information about percentage dimensions and margins. It acts as an extension
-     * for {@code LayoutParams}.
+     * 百分比信息
      */
     public static class PercentLayoutInfo {
 
+        // 基准模式
         private enum BASEMODE {
 
             BASE_WIDTH, BASE_HEIGHT, BASE_SCREEN_WIDTH, BASE_SCREEN_HEIGHT;
 
-            /**
-             * width_parent
-             */
+            // 未指定
             public static final String PERCENT = "%";
-            /**
-             * width_parent
-             */
+            // 父控件宽度
             public static final String W = "w";
-            /**
-             * height_parent
-             */
+            // 父控件高度
             public static final String H = "h";
-            /**
-             * width_screen
-             */
+            // 屏幕宽度
             public static final String SW = "sw";
-            /**
-             * height_screen
-             */
+            // 屏幕高度
             public static final String SH = "sh";
         }
 
+        // 百分比属性(包括基准模式和百分比值)
         public static class PercentVal {
-
             public float percent = -1;
             public BASEMODE basemode;
 
@@ -680,20 +745,17 @@ public class PercentLayoutHelper {
 
         public PercentVal textSizePercent;
 
-        //1.0.4 those attr for some views' setMax/min Height/Width method
         public PercentVal maxWidthPercent;
         public PercentVal maxHeightPercent;
         public PercentVal minWidthPercent;
         public PercentVal minHeightPercent;
 
-        //1.0.6 add padding supprot
         public PercentVal paddingLeftPercent;
         public PercentVal paddingRightPercent;
         public PercentVal paddingTopPercent;
         public PercentVal paddingBottomPercent;
 
-
-        /* package */ final ViewGroup.MarginLayoutParams mPreservedParams;
+        final ViewGroup.MarginLayoutParams mPreservedParams;
 
 
         public PercentLayoutInfo() {
@@ -701,14 +763,14 @@ public class PercentLayoutHelper {
         }
 
         /**
-         * Fills {@code ViewGroup.LayoutParams} dimensions based on percentage values.
+         * 将LayoutParams填充成百分比模式
          */
         public void fillLayoutParams(ViewGroup.LayoutParams params, int widthHint,
                                      int heightHint) {
-            // Preserve the original layout params, so we can restore them after the measure step.
+            // 先将原始的布局参数保存起来
             mPreservedParams.width = params.width;
             mPreservedParams.height = params.height;
-
+            // 根据百分比属性设置布局宽高
             if (widthPercent != null) {
                 int base = getBaseByModeAndVal(widthHint, heightHint, widthPercent.basemode);
                 params.width = (int) (base * widthPercent.percent);
@@ -724,14 +786,14 @@ public class PercentLayoutHelper {
         }
 
         /**
-         * Fills {@code ViewGroup.MarginLayoutParams} dimensions and margins based on percentage
-         * values.
+         * 将带Margin的LayoutParams填充成百分比模式
          */
         public void fillMarginLayoutParams(ViewGroup.MarginLayoutParams params, int widthHint,
                                            int heightHint) {
+            // 填充宽高
             fillLayoutParams(params, widthHint, heightHint);
 
-            // Preserver the original margins, so we can restore them after the measure step.
+            // 预存原始的margin, 再赋值百分比margin
             mPreservedParams.leftMargin = params.leftMargin;
             mPreservedParams.topMargin = params.topMargin;
             mPreservedParams.rightMargin = params.rightMargin;
@@ -773,11 +835,7 @@ public class PercentLayoutHelper {
             }
         }
 
-        /**
-         * Restores original dimensions and margins after they were changed for percentage based
-         * values. Calling this method only makes sense if you previously called
-         * {@link PercentLayoutHelper.PercentLayoutInfo#fillMarginLayoutParams}.
-         */
+        // 恢复原始的带Margin布局参数
         public void restoreMarginLayoutParams(ViewGroup.MarginLayoutParams params) {
             restoreLayoutParams(params);
             params.leftMargin = mPreservedParams.leftMargin;
@@ -790,11 +848,7 @@ public class PercentLayoutHelper {
                     MarginLayoutParamsCompat.getMarginEnd(mPreservedParams));
         }
 
-        /**
-         * Restores original dimensions after they were changed for percentage based values. Calling
-         * this method only makes sense if you previously called
-         * {@link PercentLayoutHelper.PercentLayoutInfo#fillLayoutParams}.
-         */
+        // 恢复原始的布局参数
         public void restoreLayoutParams(ViewGroup.LayoutParams params) {
             params.width = mPreservedParams.width;
             params.height = mPreservedParams.height;
@@ -802,11 +856,7 @@ public class PercentLayoutHelper {
     }
 
     /**
-     * If a layout wants to support percentage based dimensions and use this helper class, its
-     * {@code LayoutParams} subclass must implement this interface.
-     * <p/>
-     * Your {@code LayoutParams} subclass should contain an instance of {@code PercentLayoutInfo}
-     * and the implementation of this interface should be a simple accessor.
+     * 如果你想在代码中修改某一个控件的百分比布局参数, 确保它的父控件是LshPercentLayout, 通过调用getPercentLayoutInfo()来获取百分比布局参数
      */
     public interface PercentLayoutParams {
         PercentLayoutInfo getPercentLayoutInfo();
