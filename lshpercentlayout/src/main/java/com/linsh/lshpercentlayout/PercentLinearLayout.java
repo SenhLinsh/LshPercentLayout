@@ -13,23 +13,20 @@ import android.widget.ScrollView;
 /**
  * Created by zhy on 15/6/30.
  */
-public class PercentLinearLayout extends LinearLayout
-{
-
+public class PercentLinearLayout extends LinearLayout {
     private static final String TAG = "PercentLinearLayout";
     private PercentLayoutHelper mPercentLayoutHelper;
+    private PercentLayoutHelper.PercentLayoutInfo percentLayoutInfo;
 
-    public PercentLinearLayout(Context context, AttributeSet attrs)
-    {
+    public PercentLinearLayout(Context context, AttributeSet attrs) {
         super(context, attrs);
-
         mPercentLayoutHelper = new PercentLayoutHelper(this);
+        percentLayoutInfo = PercentLayoutHelper.getPercentLayoutInfo(context, attrs);
     }
 
 
     @Override
-    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec)
-    {
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
 
         int heightSize = MeasureSpec.getSize(heightMeasureSpec);
         int heightMode = MeasureSpec.getMode(heightMeasureSpec);
@@ -40,33 +37,30 @@ public class PercentLinearLayout extends LinearLayout
         int tmpWidthMeasureSpec = MeasureSpec.makeMeasureSpec(widthSize, widthMode);
 
         //fixed scrollview height problems
-        if (heightMode == MeasureSpec.UNSPECIFIED && getParent() != null && (getParent() instanceof ScrollView))
-        {
+        if (heightMode == MeasureSpec.UNSPECIFIED && getParent() != null && (getParent() instanceof ScrollView)) {
             int baseHeight = 0;
             Context context = getContext();
-            if (context instanceof Activity)
-            {
+            if (context instanceof Activity) {
                 Activity act = (Activity) context;
                 int measuredHeight = act.findViewById(android.R.id.content).getMeasuredHeight();
                 baseHeight = measuredHeight;
-            } else
-            {
+            } else {
                 baseHeight = getScreenHeight();
             }
             tmpHeightMeasureSpec = MeasureSpec.makeMeasureSpec(baseHeight, heightMode);
         }
 
-
+        if (percentLayoutInfo != null) {
+            mPercentLayoutHelper.adjustMyself(widthMeasureSpec, heightMeasureSpec, percentLayoutInfo);
+        }
         mPercentLayoutHelper.adjustChildren(tmpWidthMeasureSpec, tmpHeightMeasureSpec);
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-        if (mPercentLayoutHelper.handleMeasuredStateTooSmall())
-        {
+        if (mPercentLayoutHelper.handleMeasuredStateTooSmall()) {
             super.onMeasure(widthMeasureSpec, heightMeasureSpec);
         }
     }
 
-    private int getScreenHeight()
-    {
+    private int getScreenHeight() {
         WindowManager wm = (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
         DisplayMetrics outMetrics = new DisplayMetrics();
         wm.getDefaultDisplay().getMetrics(outMetrics);
@@ -74,55 +68,46 @@ public class PercentLinearLayout extends LinearLayout
     }
 
     @Override
-    protected void onLayout(boolean changed, int l, int t, int r, int b)
-    {
+    protected void onLayout(boolean changed, int l, int t, int r, int b) {
         super.onLayout(changed, l, t, r, b);
         mPercentLayoutHelper.restoreOriginalParams();
     }
 
     @Override
-    public LayoutParams generateLayoutParams(AttributeSet attrs)
-    {
+    public LayoutParams generateLayoutParams(AttributeSet attrs) {
         return new LayoutParams(getContext(), attrs);
     }
 
 
     public static class LayoutParams extends LinearLayout.LayoutParams
-            implements PercentLayoutHelper.PercentLayoutParams
-    {
+            implements PercentLayoutHelper.PercentLayoutParams {
         private PercentLayoutHelper.PercentLayoutInfo mPercentLayoutInfo;
 
-        public LayoutParams(Context c, AttributeSet attrs)
-        {
+        public LayoutParams(Context c, AttributeSet attrs) {
             super(c, attrs);
             mPercentLayoutInfo = PercentLayoutHelper.getPercentLayoutInfo(c, attrs);
         }
 
         @Override
-        public PercentLayoutHelper.PercentLayoutInfo getPercentLayoutInfo()
-        {
+        public PercentLayoutHelper.PercentLayoutInfo getPercentLayoutInfo() {
             return mPercentLayoutInfo;
         }
 
         @Override
-        protected void setBaseAttributes(TypedArray a, int widthAttr, int heightAttr)
-        {
+        protected void setBaseAttributes(TypedArray a, int widthAttr, int heightAttr) {
             PercentLayoutHelper.fetchWidthAndHeight(this, a, widthAttr, heightAttr);
         }
 
-        public LayoutParams(int width, int height)
-        {
+        public LayoutParams(int width, int height) {
             super(width, height);
         }
 
 
-        public LayoutParams(ViewGroup.LayoutParams source)
-        {
+        public LayoutParams(ViewGroup.LayoutParams source) {
             super(source);
         }
 
-        public LayoutParams(MarginLayoutParams source)
-        {
+        public LayoutParams(MarginLayoutParams source) {
             super(source);
         }
 

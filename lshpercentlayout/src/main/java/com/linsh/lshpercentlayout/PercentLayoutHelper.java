@@ -14,6 +14,7 @@ import android.util.Log;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.view.WindowManager;
 import android.widget.TextView;
 
@@ -142,11 +143,15 @@ public class PercentLayoutHelper {
     }
 
     // 根据百分比改变自身宽高
-    public void adjustMyself(int widthMeasureSpec, int heightMeasureSpec, AttributeSet attrs) {
+    public void adjustMyself(int widthMeasureSpec, int heightMeasureSpec, PercentLayoutHelper.PercentLayoutInfo percentLayoutInfo) {
+        ViewParent parent = mHost.getParent();
+        if (parent == null || parent instanceof PercentFrameLayout
+                || parent instanceof PercentLinearLayout || parent instanceof PercentRelativeLayout) {
+            return;
+        }
         int widthHint = View.MeasureSpec.getSize(widthMeasureSpec);
         int heightHint = View.MeasureSpec.getSize(heightMeasureSpec);
-
-        PercentLayoutInfo percentLayoutInfo  = PercentLayoutHelper.getPercentLayoutInfo(mHost.getContext(), attrs);
+        // 获取LayoutParams并根据百分比参数修改LayoutParams
         ViewGroup.LayoutParams params = mHost.getLayoutParams();
 
         if (percentLayoutInfo != null) {

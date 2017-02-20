@@ -9,7 +9,7 @@ import android.widget.FrameLayout;
 
 public class PercentFrameLayout extends FrameLayout {
     private final PercentLayoutHelper mHelper = new PercentLayoutHelper(this);
-    private AttributeSet mAttrs;
+    private PercentLayoutHelper.PercentLayoutInfo percentLayoutInfo;
 
     public PercentFrameLayout(Context context) {
         super(context);
@@ -17,7 +17,7 @@ public class PercentFrameLayout extends FrameLayout {
 
     public PercentFrameLayout(Context context, AttributeSet attrs) {
         super(context, attrs);
-        mAttrs = attrs;
+        percentLayoutInfo = PercentLayoutHelper.getPercentLayoutInfo(context, attrs);
     }
 
     public PercentFrameLayout(Context context, AttributeSet attrs, int defStyleAttr) {
@@ -31,8 +31,8 @@ public class PercentFrameLayout extends FrameLayout {
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        if (mAttrs != null) {
-            mHelper.adjustMyself(widthMeasureSpec, heightMeasureSpec, mAttrs);
+        if (percentLayoutInfo != null) {
+            mHelper.adjustMyself(widthMeasureSpec, heightMeasureSpec, percentLayoutInfo);
         }
         mHelper.adjustChildren(widthMeasureSpec, heightMeasureSpec);
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
