@@ -66,11 +66,11 @@ public class PercentLayoutHelper {
             Log.v("LshLog", "LshPercentLayout: 获取清单文件的BaseScreenSize");
             getMetaBaseScreenSize();
             getMetaDeviceScreenSize();
-        }
-        if (mBaseScreenWidth == 0 && mBaseScreenHeight == 0) {
-            Log.v("LshLog", "LshPercentLayout: 设置默认BaseScreenSize: 1080*1920");
-            mBaseScreenWidth = 1080;
-            mBaseScreenHeight = 1920;
+            if (mBaseScreenWidth == 0 && mBaseScreenHeight == 0) {
+                Log.v("LshLog", "LshPercentLayout: 设置默认BaseScreenSize: 1080*1920");
+                mBaseScreenWidth = 1080;
+                mBaseScreenHeight = 1920;
+            }
         }
     }
 
@@ -110,25 +110,36 @@ public class PercentLayoutHelper {
 
     // 获取屏幕尺寸, 在布局预览时, 无法获取屏幕宽高, 可配置预览设备屏幕宽高
     private void getScreenSize() {
-        WindowManager wm = (WindowManager) mHost.getContext().getSystemService(Context.WINDOW_SERVICE);
-        DisplayMetrics outMetrics = new DisplayMetrics();
-        wm.getDefaultDisplay().getMetrics(outMetrics);
-        mScreenWidth = outMetrics.widthPixels;
-        mScreenHeight = outMetrics.heightPixels;
-
-        Log.v("LshLog", "LshPercentLayout: mScreenWidth=" + mScreenWidth + " mScreenHeight=" + mScreenHeight);
-        // 预览时使用全屏由于没有context获取不了屏幕宽高，导致无法正确预览（宽高为0）， 所以下面设置默认的宽高以方便在布局中预览
-        if (mScreenWidth == 0 && mScreenHeight == 0) {
-            Log.e("LshLog", "LshPercentLayout: 无法获取屏幕宽高!!!!");
+        if (mHost.isInEditMode()) {
+            // 布局预览时使用配置的宽高
             if (mDeviceScreenWidth != 0 || mDeviceScreenHeight != 0) {
                 mScreenWidth = mDeviceScreenWidth;
                 mScreenHeight = mDeviceScreenHeight;
             } else {
-                // 默认宽高 1080 * 1920
+                // 没有配置, 使用默认宽高 1080 * 1920
                 mScreenWidth = mBaseScreenWidth;
                 mScreenHeight = mBaseScreenHeight;
             }
+        } else {
+            WindowManager wm = (WindowManager) mHost.getContext().getSystemService(Context.WINDOW_SERVICE);
+            DisplayMetrics outMetrics = new DisplayMetrics();
+            wm.getDefaultDisplay().getMetrics(outMetrics);
+            mScreenWidth = outMetrics.widthPixels;
+            mScreenHeight = outMetrics.heightPixels;
+            if ((mScreenWidth > mScreenHeight) != (mBaseScreenWidth > mBaseScreenHeight)) {
+                changeBaseScreenSize();
+            }
+
+            if (mScreenWidth == 0 && mScreenHeight == 0) {
+                Log.e("LshLog", "LshPercentLayout: 无法获取屏幕宽高!!!!");
+            }
         }
+    }
+
+    private void changeBaseScreenSize() {
+        int tempWidth = mBaseScreenWidth;
+        mBaseScreenWidth = mBaseScreenHeight;
+        mBaseScreenHeight = tempWidth;
     }
 
     /**
