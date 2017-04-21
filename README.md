@@ -4,8 +4,28 @@
 对其进行了功能的增进和完善, 使其更方便于开发和使用.
 
 ## 使用方法:
-原库的使用方法请见:
+### 原库的使用方法请见:
 [https://github.com/hongyangAndroid/android-percent-support-extend](https://github.com/hongyangAndroid/android-percent-support-extend)
+
+### 添加依赖
+在项目根目录build.gradle中添加自定义maven
+
+```
+	allprojects {
+		repositories {
+			...
+			maven { url 'https://jitpack.io' }
+		}
+	}
+```
+
+在module的build.gradle中添加依赖
+
+```
+	dependencies {
+	        compile 'com.github.SenhLinsh:LshPercentLayout:v1.0'
+	}
+```
 
 ## 扩展
 
