@@ -23,7 +23,7 @@
 
 ```
 	dependencies {
-	        compile 'com.github.SenhLinsh:LshPercentLayout:v1.0'
+	        compile 'com.github.SenhLinsh:LshPercentLayout:1.0.0'
 	}
 ```
 
